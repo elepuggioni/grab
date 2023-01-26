@@ -1,0 +1,6 @@
+.vscode/
+extensions/
+downloads/
+node_modules/
+app/src/playlist.json
+src/downloads/

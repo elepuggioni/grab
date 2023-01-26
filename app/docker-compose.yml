@@ -1,0 +1,10 @@
+services:
+  grab: 
+    image: elena/grab:latest
+    command: cd app
+    security_opt:
+      - seccomp:src/config/chrome.json
+    build: .
+    working_dir: /grab
+    volumes:
+      - ../:/grab

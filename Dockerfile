@@ -7,8 +7,13 @@ USER root
 
 RUN apt-get update && apt-get install -y ffmpeg jq
 
-WORKDIR /grab
-COPY package-lock.json package.json /grab/
-RUN npm install
+WORKDIR /grab 
 
-RUN rm package-lock.json package.json
+COPY package-lock.json package.json /grab/
+
+RUN npm i
+
+RUN addgroup --gid 1024 vlmaccess
+RUN usermod -a -G vlmaccess pptruser
+
+USER pptruser

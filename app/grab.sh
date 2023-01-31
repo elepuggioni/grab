@@ -65,8 +65,6 @@ video=$(cat ./src/playlist.json | jq -r '.video')
 title=$(cat ./src/playlist.json | jq -r '.title')
 author=$(cat ./src/playlist.json | jq -r '.author')
 
-mkdir -p ../downloads
-
 echo -e "$channel \n"
 if [ "$channel" = "audio" ]; then
     ffmpeg -i $audio ../downloads/"$title".mp3

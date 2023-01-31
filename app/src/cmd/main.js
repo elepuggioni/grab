@@ -3,6 +3,8 @@ const path = require('path');
 const Url = require('url-parse');
 const fs = require('fs');
 
+const utils = require('./utils/utils.js');
+
 const minDuration = 60; // dont download anything shorter than this (in seconds) (to avoid ads)
 const DEBUG = true;
 
@@ -13,25 +15,6 @@ let found = {
     audio: false,
     video: false
 };
-
-function isCurrentUserRoot() {
-    return process.getuid() == 0; // UID 0 is always root
-}
-
-// waits until func returns true
-function waitFor(func) {
-    const poll = resolve => {
-        if(func()) resolve();
-        else setTimeout(_ => poll(resolve), 400);
-    }
-    return new Promise(poll);
-}
-
-function delay(time) {
-    return new Promise(function(resolve) { 
-        setTimeout(resolve, time)
-    });
-}
 
 // read file with blocked domains (ads)
 function readHosts(){
@@ -165,7 +148,7 @@ function handleYoutube(interceptedRequest, audio_only){
     // get title and author
     source.title = await page.title()
         .then(t => t.trimEnd());
-    delay(300);
+    utils.delay(300);
     //source.author = await page.$eval('a.yt-simple-endpoint.style-scope.yt-formatted-string', el => el.innerText);
 
     fs.writeFile('app/src/playlist.json', JSON.stringify(source), 'utf8', err => {

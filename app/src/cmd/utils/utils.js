@@ -11,8 +11,10 @@ function waitFor(func) {
     return new Promise(poll);
 }
 
-export function delay(time) {
+function delay(time) {
     return new Promise(function(resolve) { 
         setTimeout(resolve, time)
     });
 }
+
+module.exports = { delay };

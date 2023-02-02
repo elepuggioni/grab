@@ -12,3 +12,6 @@ sysctl -w kernel.unprivileged_userns_clone=0
 EOF
 
 yes | docker images prune
+
+# cd app 
+# bash grab.sh -a https://www.youtube.com/watch?v=Vg-0DFNTBm0

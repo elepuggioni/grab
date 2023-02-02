@@ -11,8 +11,6 @@ WORKDIR /grab
 
 COPY package-lock.json package.json /grab/
 
-RUN npm i
-
 RUN addgroup --gid 1024 vlmaccess
 RUN usermod -a -G vlmaccess pptruser
 

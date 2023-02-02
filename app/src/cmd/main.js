@@ -3,27 +3,44 @@ const path = require('path');
 
 const io = require('./utils/io.js');
 const setup = require('./utils/setup.js');
-const logs = require('./utils/logs.js');
+const log = require('./utils/log.js');
 const utils = require('./utils/utils.js');
+const { title } = require('process');
 
 const minDuration = 60; // dont download anything shorter than this (in seconds) (to avoid ads)
 
-let blockedHosts = [];
+/** 
+ * @typedef {Object} Result 
+ * @property {string} audio_stream
+ * @property {string} video_stream
+ * 
+*/
 
-// true if it found the .m3u8 file
-let found = {
-    audio: false,
-    video: false
-};
+/** 
+ * @typedef {Object} Config 
+ * @property {string} url
+ * @property {boolean} audio
+ * @property {boolean} video
+ * 
+*/
 
-function handleYoutube(interceptedRequest, audio_only){
+/**
+ * @param {puppeteer.HTTPRequest} interceptedRequest 
+ * @param {Config} config
+ * @returns {Result}
+ */
+async function handleYoutube(interceptedRequest, config){
     let url = new URL(interceptedRequest.url())
-    let result = {};
+    
+    let result = {
+        ok: false
+    };
 
-    // find the right request
+    // filter requests to find the ones containing media streams
     if (url.hostname.search('googlevideo.com') !== -1){
-        // parse url for params
         let params = {};
+
+        // parse url for params
         for(const param of url.href.split('&')){
             let s = param.split('=');
             let key = s[0];
@@ -36,30 +53,22 @@ function handleYoutube(interceptedRequest, audio_only){
         }
 
         if(parseFloat(params.dur, 10) > minDuration){
-            if(
-                (!found.audio && params.mime.startsWith('audio')) ||
-                (!found.video && !audio_only && params.mime.startsWith('video'))
-             ){
-                const re = new RegExp(/range=[^&]*/);
-                let newUrl = url.href.replace(re, 'range=0-999999999');
-                
-                let source_type = params.mime.substring(0, params.mime.indexOf("%"));
-                
-                if( source_type === 'audio'){
-                    result.audio = newUrl;
-                }else if(source_type === 'video'){
-                    result.video = newUrl;
-                }
-                
-                found[source_type] = true;
+            const re = new RegExp(/range=[^&]*/);
 
-                logs.debug(params);
-                logs.debug(result);
+            result = {
+                ok: true,
+                stream: {
+                    type: params.mime.substring(0, params.mime.indexOf("%")),
+                    url: url.href.replace(re, 'range=0-999999999')
+                },
             }
+
+            log.debug(params);
+            log.debug(result);
         }
     }
+    await interceptedRequest.continue();
 
-    interceptedRequest.continue();
     return result;
 }
 
@@ -72,7 +81,8 @@ function handleYoutube(interceptedRequest, audio_only){
         process.exit(1);
     }
 
-    config.audio_only = process.argv.slice(3, 4)[0] === 'audio';
+    config.audio = true;
+    config.video = process.argv.slice(3, 4)[0] !== 'audio';
     
     // todo check url is valid 
     // detect site
@@ -84,11 +94,8 @@ function handleYoutube(interceptedRequest, audio_only){
             handler = handleYoutube;
             break;
         default:
-            console.log('Unknown domain. Exiting...')
-            process.exit(1);
+            log.fatal('Unknown domain. Exiting...')
     }
-
-    blockedHosts = setup.readBlockedHosts();
 
     const ublock = path.join(process.cwd(), './extensions/ublock');
     const browser = await puppeteer.launch({
@@ -103,40 +110,39 @@ function handleYoutube(interceptedRequest, audio_only){
     const page = await browser.newPage();
     await page.setRequestInterception(true);
 
-    console.log("Launched in headless mode...")
+    log.write("Launched in headless mode...")
 
-    // intercept requests
-    let source = {};
-    page.on('request', async interceptedRequest => {
-        // block requests coming from blacklisted domains
-        var domain = null;
-        var frags = interceptedRequest.url().split('/');
-        if (frags.length > 2) {
-           domain = frags[2];
+    let streams = [];
+
+    page.on('request', async request => {
+        // abort requests coming from blacklisted domains
+        let blockedHosts = setup.readBlockedHosts();
+        let requestUrl = new URL(request.url());
+        
+        if(blockedHosts[requestUrl.hostname]) {
+            await request.abort();
         }
-        // just abort if found
-        if (blockedHosts[domain]) {
-            interceptedRequest.abort();
-        }else{
-            if(!found.audio || !found.video){
-                let result = handler(interceptedRequest, config.audio_only);
-                if(result !== null && !(Object.keys(result).length === 0)){
-                    Object.assign(source, result);
-                }
-            }else{
-                interceptedRequest.abort();
-            }
+        else{
+            await handler(request, config, streams)
+                .then(r => r.ok ? streams.push(r.stream) : null)
         }
     });
+
     await page.goto(config.url,{ waitUntil: 'networkidle0' });
 
     // get title and author
-    source.title = await page.title()
+    title = await page.title()
         .then(t => t.trimEnd());
-    utils.delay(300);
-    //source.author = await page.$eval('a.yt-simple-endpoint.style-scope.yt-formatted-string', el => el.innerText);
 
-    io.write('app/src/playlist.json', source);
+    utils.delay(300);
+    //author = await page.$eval('a.yt-simple-endpoint.style-scope.yt-formatted-string', el => el.innerText);
+
+    let result = {
+        title: title,
+        streams: streams,
+    };
+
+    io.write('app/src/playlist.json', result);
 
     await browser.close();
 })();

@@ -6,5 +6,4 @@ services:
     build: .
     working_dir: /grab
     volumes:
-      - ./app:/grab/app
-      - ./downloads:/grab/downloads
+      - ./:/grab

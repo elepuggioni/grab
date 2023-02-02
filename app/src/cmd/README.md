@@ -1,7 +1,6 @@
 ### todo
 [x] add security (--no-sandbox? hello??)
 [ ] add manual
-[ ] migrate to typescript
 [ ] tidy code
 [ ] add checks
 [ ] add clearfolder command

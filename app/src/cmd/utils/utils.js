@@ -2,7 +2,7 @@ function isCurrentUserRoot() {
     return process.getuid() == 0; // UID 0 is always root
 }
 
-// waits until func returns true
+/** waits until func returns true */
 function waitFor(func) {
     const poll = resolve => {
         if(func()) resolve();
@@ -11,9 +11,12 @@ function waitFor(func) {
     return new Promise(poll);
 }
 
-function delay(time) {
+/** pause execution for a certain time
+ * @param { number } ms time in milliseconds
+*/
+function delay(ms) {
     return new Promise(function(resolve) { 
-        setTimeout(resolve, time)
+        setTimeout(resolve, ms)
     });
 }
 

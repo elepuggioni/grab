@@ -1,14 +1,14 @@
 const puppeteer = require('puppeteer');
 const path = require('path');
-const Url = require('url-parse');
-const fs = require('fs');
 
+const io = require('./utils/io.js');
+const setup = require('./utils/setup.js');
+const logs = require('./utils/logs.js');
 const utils = require('./utils/utils.js');
 
 const minDuration = 60; // dont download anything shorter than this (in seconds) (to avoid ads)
-const DEBUG = true;
 
-let blocked = [];
+let blockedHosts = [];
 
 // true if it found the .m3u8 file
 let found = {
@@ -16,21 +16,8 @@ let found = {
     video: false
 };
 
-// read file with blocked domains (ads)
-function readHosts(){
-    let hostFile = fs.readFileSync('./app/src/config/hosts.txt', 'utf8').split('\n');
-    let hosts = {};
-    for (var i = 0; i < hostFile.length; i++) {
-        let frags = hostFile[i].split(' ');
-        if (frags.length > 1 && frags[0] === '0.0.0.0') {
-            hosts[frags[1].trim()] = true;
-        }
-    }
-    return hosts;
-}
-
 function handleYoutube(interceptedRequest, audio_only){
-    let url = new Url(interceptedRequest.url())
+    let url = new URL(interceptedRequest.url())
     let result = {};
 
     // find the right request
@@ -66,10 +53,8 @@ function handleYoutube(interceptedRequest, audio_only){
                 
                 found[source_type] = true;
 
-                if(DEBUG){
-                    console.log(params);
-                    console.log(result);
-                }
+                logs.debug(params);
+                logs.debug(result);
             }
         }
     }
@@ -103,7 +88,7 @@ function handleYoutube(interceptedRequest, audio_only){
             process.exit(1);
     }
 
-    blocked = readHosts();
+    blockedHosts = setup.readBlockedHosts();
 
     const ublock = path.join(process.cwd(), './extensions/ublock');
     const browser = await puppeteer.launch({
@@ -130,7 +115,7 @@ function handleYoutube(interceptedRequest, audio_only){
            domain = frags[2];
         }
         // just abort if found
-        if (blocked[domain] === true) {
+        if (blockedHosts[domain]) {
             interceptedRequest.abort();
         }else{
             if(!found.audio || !found.video){
@@ -151,11 +136,7 @@ function handleYoutube(interceptedRequest, audio_only){
     utils.delay(300);
     //source.author = await page.$eval('a.yt-simple-endpoint.style-scope.yt-formatted-string', el => el.innerText);
 
-    fs.writeFile('app/src/playlist.json', JSON.stringify(source), 'utf8', err => {
-        if (err) {
-            console.error(err);
-        }
-    });
+    io.write('app/src/playlist.json', source);
 
     await browser.close();
 })();

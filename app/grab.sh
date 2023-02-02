@@ -60,8 +60,8 @@ fi
 
 npm run start $1 $channel
 
-audio=$(cat ./src/playlist.json | jq -r '.audio')
-video=$(cat ./src/playlist.json | jq -r '.video')
+audio=$(cat ./src/playlist.json | jq -r '.download.audio')
+video=$(cat ./src/playlist.json | jq -r '.download.video')
 title=$(cat ./src/playlist.json | jq -r '.title')
 author=$(cat ./src/playlist.json | jq -r '.author')
 

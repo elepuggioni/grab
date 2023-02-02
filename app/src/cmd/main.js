@@ -30,7 +30,7 @@ const minDuration = 60; // dont download anything shorter than this (in seconds)
  * @returns {Result}
  */
 async function handleYoutube(interceptedRequest, config){
-    let url = new URL(interceptedRequest.url())
+    let url = new URL(utils.decodeUrl(interceptedRequest.url()));
     
     let result = {
         ok: false
@@ -58,7 +58,7 @@ async function handleYoutube(interceptedRequest, config){
             result = {
                 ok: true,
                 stream: {
-                    type: params.mime.substring(0, params.mime.indexOf("%")),
+                    type: params.mime.substring(0, params.mime.indexOf("/")),
                     url: url.href.replace(re, 'range=0-999999999')
                 },
             }
@@ -131,15 +131,27 @@ async function handleYoutube(interceptedRequest, config){
     await page.goto(config.url,{ waitUntil: 'networkidle0' });
 
     // get title and author
-    title = await page.title()
+    let title = await page.title()
         .then(t => t.trimEnd());
 
     utils.delay(300);
-    //author = await page.$eval('a.yt-simple-endpoint.style-scope.yt-formatted-string', el => el.innerText);
+    //let author = await page.$eval('a.yt-simple-endpoint.style-scope.yt-formatted-string', el => el.innerText);
+
+    // for now take the first audio and video it finds and set it as the stuff to download
+    let download = {};
+    for(let stream of streams){
+        if(stream.type === 'audio' && download.audio === undefined){
+            download.audio = stream.url;
+        }
+        if(stream.type === 'video' && download.video === undefined){
+            download.video = stream.url;
+        }
+    }
 
     let result = {
         title: title,
         streams: streams,
+        download: download
     };
 
     io.write('app/src/playlist.json', result);

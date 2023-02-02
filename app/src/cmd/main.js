@@ -9,27 +9,13 @@ const { title } = require('process');
 
 const minDuration = 60; // dont download anything shorter than this (in seconds) (to avoid ads)
 
-/** 
- * @typedef {Object} Result 
- * @property {string} audio_stream
- * @property {string} video_stream
- * 
-*/
-
-/** 
- * @typedef {Object} Config 
- * @property {string} url
- * @property {boolean} audio
- * @property {boolean} video
- * 
-*/
-
 /**
  * @param {puppeteer.HTTPRequest} interceptedRequest 
  * @param {Config} config
- * @returns {Result}
  */
 async function handleYoutube(interceptedRequest, config){
+    // document.querySelector('#movie_player').getAvailableQualityLabels()
+    // document.querySelector('#movie_player').setPlaybackQualityRange(qualitylabel)
     let url = new URL(utils.decodeUrl(interceptedRequest.url()));
     
     let result = {
@@ -108,7 +94,7 @@ async function handleYoutube(interceptedRequest, config){
     });
 
     const page = await browser.newPage();
-    await page.setRequestInterception(true);
+    //await page.setRequestInterception(true);
 
     log.write("Launched in headless mode...")
 
@@ -127,6 +113,16 @@ async function handleYoutube(interceptedRequest, config){
                 .then(r => r.ok ? streams.push(r.stream) : null)
         }
     });
+
+    //print al console messages
+    page
+    .on('console', message =>
+      console.log(`${message.type().substr(0, 3).toUpperCase()} ${message.text()}`))
+    .on('pageerror', ({ message }) => console.log(message))
+    .on('response', response =>
+      console.log(`${response.status()} ${response.url()}`))
+    .on('requestfailed', request =>
+      console.log(`${request.failure().errorText} ${request.url()}`))
 
     await page.goto(config.url,{ waitUntil: 'networkidle0' });
 

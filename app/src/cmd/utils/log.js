@@ -1,19 +1,29 @@
 const DEBUG = true;
+const BROWSER = false;
 
 /** print message to console if debug mode
- * @param { any } message
+ * @param { ...any } message
 */
-function debug(message){
+function debug(...message){
     if(DEBUG){
-        console.log(message);
+        console.log('DEBUG', ...message);
+    }
+}
+
+/** print message to console if browser messages enabled
+ * @param { ...any } message
+*/
+function browser(...message){
+    if(BROWSER){
+        console.log('[BROWSER]', ...message);
     }
 }
 
 /** print message to console
- * @param { any } message
+ * @param { ...any } message
 */
-function write(message){
-    console.log(message);
+function write(...message){
+    console.log(...message);
 }
 
 /** print message to console, then exit
@@ -27,4 +37,4 @@ function fatal(message, exit_code){
     process.exit(code);
 }
 
-module.exports = { write, debug, fatal };
+module.exports = { write, debug, browser, fatal };

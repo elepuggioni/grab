@@ -5,79 +5,50 @@ const io = require('./utils/io.js');
 const setup = require('./utils/setup.js');
 const log = require('./utils/log.js');
 const utils = require('./utils/utils.js');
-const { title } = require('process');
+const urls = require('./utils/urls.js');
+
+const youtube = require('./extractor/youtube.js');
 
 const minDuration = 60; // dont download anything shorter than this (in seconds) (to avoid ads)
 
-/**
- * @param {puppeteer.HTTPRequest} interceptedRequest 
- * @param {Config} config
- */
-async function handleYoutube(interceptedRequest, config){
-    // document.querySelector('#movie_player').getAvailableQualityLabels()
-    // document.querySelector('#movie_player').setPlaybackQualityRange(qualitylabel)
-    let url = new URL(utils.decodeUrl(interceptedRequest.url()));
-    
-    let result = {
-        ok: false
-    };
-
-    // filter requests to find the ones containing media streams
-    if (url.hostname.search('googlevideo.com') !== -1){
-        let params = {};
-
-        // parse url for params
-        for(const param of url.href.split('&')){
-            let s = param.split('=');
-            let key = s[0];
-            let value = s[1];
-
-            if (Object.keys(params).length === 0){
-                key = key.substring(key.indexOf("?") + 1);
-            }
-            params[key] = value;
-        }
-
-        if(parseFloat(params.dur, 10) > minDuration){
-            const re = new RegExp(/range=[^&]*/);
-
-            result = {
-                ok: true,
-                stream: {
-                    type: params.mime.substring(0, params.mime.indexOf("/")),
-                    url: url.href.replace(re, 'range=0-999999999')
-                },
-            }
-
-            log.debug(params);
-            log.debug(result);
-        }
-    }
-    await interceptedRequest.continue();
-
-    return result;
-}
-
 (async function main(){
-    //get cli arguments. arguments start at 2. only accepts one argument for now, the url
+    // process.argv.slice(2, 3)[0] to get cli arguments
+
+    log.write('Setting up...');
+    
+    // init config
     let config = {}
+
     config.url = process.argv.slice(2, 3)[0];
     if(config.url === undefined){
         console.log("Exited with code 1: missing url argument")
         process.exit(1);
     }
-
-    config.audio = true;
-    config.video = process.argv.slice(3, 4)[0] !== 'audio';
-    
     // todo check url is valid 
-    // detect site
+
+    config.audio = {
+        name: 'audio',
+        download: true,
+        quality: 'highest',
+        format: 'any',
+    };
+
+    config.video = {
+        name: 'audio',
+        download: process.argv.slice(3, 4)[0] !== 'audio',
+        quality: 'highest',
+        format: 'any',
+    };
+
+    config.grab = process.argv.slice(3, 4)[0];
+
+    // todo detect site, yt only for now
     let domain = 'youtube';
 
     let handler;
     switch(domain){
         case 'youtube':
-            handler = handleYoutube;
+            handler = youtube.handle;
             break;
         default:
             log.fatal('Unknown domain. Exiting...')
@@ -94,9 +65,9 @@ async function handleYoutube(interceptedRequest, config){
     });
 
     const page = await browser.newPage();
-    //await page.setRequestInterception(true);
+    log.write("Launched browser in headless mode...")
 
-    log.write("Launched in headless mode...")
+    await page.setRequestInterception(true);
 
     let streams = [];
 
@@ -109,22 +80,41 @@ async function handleYoutube(interceptedRequest, config){
             await request.abort();
         }
         else{
-            await handler(request, config, streams)
-                .then(r => r.ok ? streams.push(r.stream) : null)
+            await request.continue();
         }
     });
 
     //print al console messages
-    page
-    .on('console', message =>
-      console.log(`${message.type().substr(0, 3).toUpperCase()} ${message.text()}`))
-    .on('pageerror', ({ message }) => console.log(message))
-    .on('response', response =>
-      console.log(`${response.status()} ${response.url()}`))
-    .on('requestfailed', request =>
-      console.log(`${request.failure().errorText} ${request.url()}`))
+    page.on('console', message => log.browser(message.type().toUpperCase(), message.text(), '\n'))
+        .on('pageerror', message => log.browser('ERROR', message.text(), '\n'))
+        .on('response', response => log.browser('RESPONSE', response.status(), response.url(), '\n'))
+        .on('requestfailed', request => log.browser('REQUEST FAIL', request.failure().errorText, request.url(), '\n'));
 
     await page.goto(config.url,{ waitUntil: 'networkidle0' });
+
+    let check = {
+        audio: false,
+        video: false,
+    };
+
+    let qualities = await youtube.getAvailableQualityLevels(page);
+    console.log(qualities);
+
+    await youtube.setPlaybackQualityRange(page, qualities[0])
+        .then(r => log.write(r));
+
+    await page.waitForResponse((request) => {
+            handler(request, config)
+            .then((r) => {
+                if(r.ok){
+                    streams.push(r.stream);
+                    check[r.stream.type] = true;
+                }
+            });
+
+            return check.audio && check.video;
+        })
+        .then(r => log.write(r));
 
     // get title and author
     let title = await page.title()

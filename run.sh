@@ -15,3 +15,5 @@ yes | docker images prune
 
 # cd app 
 # bash grab.sh -a https://www.youtube.com/watch?v=Vg-0DFNTBm0
+
+# bash grab.sh -v https://www.youtube.com/watch?v=9rF53o6FvG4

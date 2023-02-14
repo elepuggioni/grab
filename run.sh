@@ -1,11 +1,11 @@
 #!/bin/bash
-docker-compose build grab
+docker compose build grab
 
 sudo -s <<EOF
 sysctl -w kernel.unprivileged_userns_clone=1
 EOF
 
-docker-compose run --rm grab /bin/bash 
+docker compose run --rm grab /bin/bash 
 
 sudo -s <<EOF
 sysctl -w kernel.unprivileged_userns_clone=0

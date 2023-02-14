@@ -26,6 +26,20 @@ function write(...message){
     console.log(...message);
 }
 
+/** print warning to console
+ * @param { ...any } message
+*/
+function warn(...message){
+    console.log("\x1b[33m", 'WARNING', ...message, "\x1b[0m");
+}
+
+/** print non-fatal error to console
+ * @param { ...any } message
+*/
+function error(...message){
+    console.log("\x1b[31m", 'ERROR', ...message, "\x1b[0m");
+}
+
 /** print message to console, then exit
  * @param { any } message
  * @param { number } exit_code optional, default is 1
@@ -33,8 +47,9 @@ function write(...message){
 function fatal(message, exit_code){
     exit_code ??= 1;
 
-    console.log(message);
-    process.exit(code);
+    error('FATAL', message, "\n", 'Exiting with code', exit_code);
+
+    process.exit(exit_code);
 }
 
-module.exports = { write, debug, browser, fatal };
+module.exports = { write, debug, browser, warn, error, fatal };

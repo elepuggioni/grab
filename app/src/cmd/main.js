@@ -1,58 +1,21 @@
 const puppeteer = require('puppeteer');
 const path = require('path');
 
+const config = require('./config/config.js');
+const def = require('./config/def.js');
+
 const io = require('./utils/io.js');
 const setup = require('./utils/setup.js');
 const log = require('./utils/log.js');
 const utils = require('./utils/utils.js');
 const urls = require('./utils/urls.js');
 
-const youtube = require('./extractor/youtube.js');
-
 const minDuration = 60; // dont download anything shorter than this (in seconds) (to avoid ads)
 
 (async function main(){
     // process.argv.slice(2, 3)[0] to get cli arguments
 
-    log.write('Setting up...');
-    
-    // init config
-    let config = {}
-
-    config.url = process.argv.slice(2, 3)[0];
-    if(config.url === undefined){
-        console.log("Exited with code 1: missing url argument")
-        process.exit(1);
-    }
-    // todo check url is valid 
-
-    config.audio = {
-        name: 'audio',
-        download: true,
-        quality: 'highest',
-        format: 'any',
-    };
-
-    config.video = {
-        name: 'audio',
-        download: process.argv.slice(3, 4)[0] !== 'audio',
-        quality: 'highest',
-        format: 'any',
-    };
-
-    config.grab = process.argv.slice(3, 4)[0];
-
-    // todo detect site, yt only for now
-    let domain = 'youtube';
-
-    let handler;
-    switch(domain){
-        case 'youtube':
-            handler = youtube.handle;
-            break;
-        default:
-            log.fatal('Unknown domain. Exiting...')
-    }
+    let settings = config.Config.setup();
 
     const ublock = path.join(process.cwd(), './extensions/ublock');
     const browser = await puppeteer.launch({
@@ -90,7 +53,7 @@ const minDuration = 60; // dont download anything shorter than this (in seconds)
         .on('response', response => log.browser('RESPONSE', response.status(), response.url(), '\n'))
         .on('requestfailed', request => log.browser('REQUEST FAIL', request.failure().errorText, request.url(), '\n'));
 
-    await page.goto(config.url,{ waitUntil: 'networkidle0' });
+    await page.goto(settings.url,{ waitUntil: 'networkidle0' });
 
     let check = {
         audio: false,
@@ -104,7 +67,7 @@ const minDuration = 60; // dont download anything shorter than this (in seconds)
         .then(r => log.write(r));
 
     await page.waitForResponse((request) => {
-            handler(request, config)
+            handler(request, settings)
             .then((r) => {
                 if(r.ok){
                     streams.push(r.stream);

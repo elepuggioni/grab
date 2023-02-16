@@ -48,7 +48,6 @@ function fatal(message, exit_code){
     exit_code ??= 1;
 
     error('FATAL', message, "\n", 'Exiting with code', exit_code);
-
     process.exit(exit_code);
 }
 

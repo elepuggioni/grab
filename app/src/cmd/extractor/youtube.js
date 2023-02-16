@@ -1,15 +1,68 @@
-const log = require('../utils/log.js');
+const logs = require('../utils/logs.js');
 const puppeteer = require('puppeteer');
 
 const urls = require('../utils/urls.js');
+const delay = require('../utils/utils.js').delay;
 
-const player = '#movie_player';
 const minDuration = 60;
+
+async function cazzo(page, settings){
+    let done = {
+        audio: false,
+        video: false,
+    };
+
+    let streams = [];
+
+    let qualities = await getAvailableQualityLevels(page);
+    logs.debug("Available qualities", qualities);
+
+
+    if(settings.video.download){
+        await setPlaybackQualityRange(page, qualities[0]);
+    }
+
+    await page.waitForResponse((request) => {
+            handle(request, settings)
+            .then((r) => {
+                if(r.ok){
+                    streams.push(r.stream);
+                    done[r.stream.type] = true;
+                }
+            });
+            return done.audio && done.video;
+        })
+        .then(r => logs.write(r));
+
+    // get title and author
+    let title = await page.title()
+    .then(t => t.trimEnd());
+
+    delay(300);
+    //let author = await page.$eval('a.yt-simple-endpoint.style-scope.yt-formatted-string', el => el.innerText);
+
+    // for now take the first audio and video it finds and set it as the stuff to download
+    let download = {};
+    for (let stream of streams) {
+        if (stream.type === 'audio' && download.audio === undefined) {
+            download.audio = stream.url;
+        }
+        if (stream.type === 'video' && download.video === undefined) {
+            download.video = stream.url;
+        }
+    }
+
+    return {
+        title: title,
+        streams: streams,
+        download: download
+    };
+}
+
 /**
  * @param {puppeteer.HTTPRequest} interceptedRequest 
- * @param {Config} config
  */
-async function handle(interceptedRequest, config){
+async function handle(interceptedRequest){
     // document.querySelector('#movie_player').getAvailableQualityLabels()
     // document.querySelector('#movie_player').setPlaybackQualityRange(qualitylabel)
     let url = new URL(urls.decode(interceptedRequest.url()));
@@ -33,8 +86,8 @@ async function handle(interceptedRequest, config){
                 },
             }
 
-            log.debug(params);
-            log.debug(result);
+            logs.debug(params);
+            logs.debug(result);
         }
     }
 
@@ -45,7 +98,7 @@ async function handle(interceptedRequest, config){
 function getVideoId(url){
     const re = new RegExp(/watch\?v=(.*)/);
     let u = url.match(re);
-    log.write('cazzo', u[1]);
+    logs.write('cazzo', u[1]);
     return u[1];
 }
 
@@ -69,4 +122,4 @@ function changeQuality() {
     return new Promise(poll);
 }
 
-module.exports = { handle, getAvailableQualityLevels, setPlaybackQualityRange }
+module.exports = { cazzo }

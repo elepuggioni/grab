@@ -1,5 +1,5 @@
 const def = require('./def.js');
-const log = require('../utils/log.js');
+const logs = require('../utils/logs.js');
 const youtube = require('../extractor/youtube.js');
 
 class Config{
@@ -9,7 +9,7 @@ class Config{
     */
     constructor(url, grab){
         if(!['audio', 'video'].includes(grab)){
-            log.error();
+            logs.error();
             grab = 'audio';
         }
 
@@ -32,11 +32,12 @@ class Config{
     }
 
     static setup(){
-        log.write('Setting up...');
+        logs.write('Setting up...');
+        // process.argv.slice(2, 3)[0] to get cli arguments
 
         let url = process.argv.slice(2, 3)[0];
         if(url === undefined){
-            log.fatal("Missing URL parameter.");
+            logs.fatal("Missing URL parameter.");
         }
 
         // todo check url is valid 
@@ -48,7 +49,7 @@ class Config{
 
         settings.set_handler();
 
-        log.debug(settings);
+        logs.debug(settings);
 
         return settings;
     }
@@ -59,7 +60,7 @@ class Config{
                 this.handler = youtube.handle;
                 break;
             default:
-                log.fatal('Unknown domain.')
+                logs.fatal('Unknown domain.')
         }
     }
 

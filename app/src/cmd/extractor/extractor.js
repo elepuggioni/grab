@@ -1,8 +1,8 @@
-const def = require('./def.js');
+const def = require('../config/def.js');
 const logs = require('../utils/logs.js');
-const youtube = require('../extractor/youtube.js');
+const youtube = require('./youtube.js');
 
-class Config{
+class Extractor{
     /** create config object
     * @param {string} url
     * @param {string} grab
@@ -29,6 +29,14 @@ class Config{
             quality: def.Quality.highest,
             format: def.VideoFormat.any,
         };
+
+        this.streams = [];
+        this.downloads = {};
+
+        this.title = "";
+        this.author = "";
+
+        this.handler = this.set_handler();
     }
 
     static setup(){
@@ -47,17 +55,15 @@ class Config{
             process.argv.slice(3, 4)[0],
         );
 
-        settings.set_handler();
-
         logs.debug(settings);
 
         return settings;
     }
 
     set_handler(){
-        switch(this.domain){
+        switch(domain){
             case 'youtube':
-                this.handler = youtube.handle;
+                handler = youtube.handle;
                 break;
             default:
                 logs.fatal('Unknown domain.')
@@ -87,6 +93,10 @@ class Config{
             this.video.format = format;
         }
     }
+
+    set_page(page){
+        this.page = page;
+    }
 }
 
-module.exports = { Config };
+module.exports = { Extractor };

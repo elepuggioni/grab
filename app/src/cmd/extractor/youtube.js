@@ -6,120 +6,117 @@ const delay = require('../utils/utils.js').delay;
 
 const minDuration = 60;
 
-async function cazzo(page, settings){
-    let done = {
-        audio: false,
-        video: false,
-    };
+class Youtube{
 
-    let streams = [];
-
-    let qualities = await getAvailableQualityLevels(page);
-    logs.debug("Available qualities", qualities);
-
-
-    if(settings.video.download){
-        await setPlaybackQualityRange(page, qualities[0]);
+    constructor(){
+        super();
     }
 
-    await page.waitForResponse((request) => {
-            handle(request, settings)
-            .then((r) => {
-                if(r.ok){
-                    streams.push(r.stream);
-                    done[r.stream.type] = true;
-                }
-            });
-            return done.audio && done.video;
-        })
-        .then(r => logs.write(r));
+    async extract(){
+        this.qualities = await this.getAvailableQualityLevels();
+        logs.debug("Available qualities", this.qualities);
 
-    // get title and author
-    let title = await page.title()
-    .then(t => t.trimEnd());
-
-    delay(300);
-    //let author = await page.$eval('a.yt-simple-endpoint.style-scope.yt-formatted-string', el => el.innerText);
-
-    // for now take the first audio and video it finds and set it as the stuff to download
-    let download = {};
-    for (let stream of streams) {
-        if (stream.type === 'audio' && download.audio === undefined) {
-            download.audio = stream.url;
+        if(this.settings.video.download){
+            await this.setPlaybackQualityRange(this.qualities[0]);
         }
-        if (stream.type === 'video' && download.video === undefined) {
-            download.video = stream.url;
-        }
-    }
 
-    return {
-        title: title,
-        streams: streams,
-        download: download
-    };
-}
+        await this.settings.page.waitForResponse((request) => {
+                this.handle(request, this.settings)
+                .then((r) => {
+                    if(r.ok){
+                        this.streams.push(r.stream);
+                        this.done[r.stream.type] = true;
+                    }
+                });
+                return this.done.audio && this.done.video;
+            })
+            .then(r => logs.write(r));
 
-/**
- * @param {puppeteer.HTTPRequest} interceptedRequest 
- */
-async function handle(interceptedRequest){
-    // document.querySelector('#movie_player').getAvailableQualityLabels()
-    // document.querySelector('#movie_player').setPlaybackQualityRange(qualitylabel)
-    let url = new URL(urls.decode(interceptedRequest.url()));
-    
-    let result = {
-        ok: false
-    };
+        // get title and author
+        this.title = await this.settings.page.title()
+        .then(t => t.trimEnd());
 
-    // filter requests to find the ones containing media streams
-    if (url.hostname.search('googlevideo.com') !== -1){
-        let params = urls.deconstruct(url.href);
+        delay(300);
+        //let author = await page.$eval('a.yt-simple-endpoint.style-scope.yt-formatted-string', el => el.innerText);
 
-        if(parseFloat(params.dur, 10) > minDuration){
-            const re = new RegExp(/range=[^&]*/);
-
-            result = {
-                ok: true,
-                stream: {
-                    type: params.mime.substring(0, params.mime.indexOf("/")),
-                    url: url.href.replace(re, 'range=0-999999999')
-                },
+        // for now take the first audio and video it finds and set it as the stuff to download
+        for (let stream of this.streams) {
+            if (stream.type === 'audio' && this.downloads.audio === undefined) {
+                this.downloads.audio = stream.url;
             }
-
-            logs.debug(params);
-            logs.debug(result);
+            if (stream.type === 'video' && this.downloads.video === undefined) {
+                this.downloads.video = stream.url;
+            }
         }
+
+        return {
+            title: this.title,
+            streams: this.streams,
+            download: this.downloads
+        };
     }
 
-    return result;
-}
+    /**
+     * @param {puppeteer.HTTPRequest} interceptedRequest 
+     */
+    async handle(interceptedRequest){
+        // document.querySelector('#movie_player').getAvailableQualityLabels()
+        // document.querySelector('#movie_player').setPlaybackQualityRange(qualitylabel)
+        let url = new URL(urls.decode(interceptedRequest.url()));
+        
+        let result = {
+            ok: false
+        };
 
-// do some mayjikk later where i can get Id from any type of yt url
-function getVideoId(url){
-    const re = new RegExp(/watch\?v=(.*)/);
-    let u = url.match(re);
-    logs.write('cazzo', u[1]);
-    return u[1];
-}
+        // filter requests to find the ones containing media streams
+        if (url.hostname.search('googlevideo.com') !== -1){
+            let params = urls.deconstruct(url.href);
 
-async function getAvailableQualityLevels(page){
-    return await page.evaluate(() => {
-        return document.querySelector('#movie_player').getAvailableQualityLevels();
-    })
-}
+            if(parseFloat(params.dur, 10) > minDuration){
+                const re = new RegExp(/range=[^&]*/);
 
-async function setPlaybackQualityRange(page, quality){
-    await page.evaluate((quality) => {
-        document.querySelector('#movie_player').setPlaybackQualityRange(quality);
-    }, quality);
-}
+                result = {
+                    ok: true,
+                    stream: {
+                        type: params.mime.substring(0, params.mime.indexOf("/")),
+                        url: url.href.replace(re, 'range=0-999999999')
+                    },
+                }
 
-function changeQuality() {
-    const poll = resolve => {
-        if(func()) resolve();
-        else setTimeout(_ => poll(resolve), 400);
+                logs.debug(params);
+                logs.debug(result);
+            }
+        }
+
+        return result;
     }
-    return new Promise(poll);
-}
 
-module.exports = { cazzo }
+    // do some mayjikk later where i can get Id from any type of yt url
+    getVideoId(){
+        const re = new RegExp(/watch\?v=(.*)/);
+        let u = this.url.match(re);
+        logs.write('cazzo', u[1]);
+        return u[1];
+    }
+
+    async getAvailableQualityLevels(){
+        return await this.settings.page.evaluate(() => {
+            return document.querySelector('#movie_player').getAvailableQualityLevels();
+        })
+    }
+
+    async setPlaybackQualityRange(quality){
+        await this.settings.page.evaluate((quality) => {
+            document.querySelector('#movie_player').setPlaybackQualityRange(quality);
+        }, quality);
+    }
+
+    changeQuality() {
+        const poll = resolve => {
+            if(func()) resolve();
+            else setTimeout(_ => poll(resolve), 400);
+        }
+        return new Promise(poll);
+    }
+}
+module.exports = { Youtube }

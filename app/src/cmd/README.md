@@ -1,7 +1,7 @@
 ### todo
 - [x] add security (--no-sandbox? hello??)
 - [ ] add manual
-- [ ] tidy code
+- [x] tidy code
 - [ ] add checks
 - [ ] add clearfolder command
 - [ ] download playlists

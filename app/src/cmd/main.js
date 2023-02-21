@@ -1,16 +1,14 @@
 const puppeteer = require('puppeteer');
 const path = require('path');
 
-const Config = require('./config/config.js').Config;
-
 const io = require('./utils/io.js');
 const setup = require('./utils/setup.js');
 const logs = require('./utils/logs.js');
 
-const youtube = require('./extractor/youtube.js');
+const Extractor = require('./extractor/extractor.js').Extractor;
 
 (async function main() {
-    let settings = Config.setup();
+    let extractor =  Extractor.setup();
 
     const ublock = path.join(process.cwd(), './extensions/ublock');
     const browser = await puppeteer.launch({
@@ -45,9 +43,10 @@ const youtube = require('./extractor/youtube.js');
         .on('response', response => logs.browser('RESPONSE', response.status(), response.url(), '\n'))
         .on('requestfailed', request => logs.browser('REQUEST FAIL', request.failure().errorText, request.url(), '\n'));
 
-    await page.goto(settings.url, { waitUntil: 'networkidle0' });
-
-    let result = await youtube.cazzo(page, settings);
+    await page.goto(extractor.url, { waitUntil: 'networkidle0' });
+    
+    extractor.set_page(page);
+    let result = await extractor.extract();
 
     io.write('app/src/playlist.json', result);
 

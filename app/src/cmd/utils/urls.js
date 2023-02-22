@@ -14,7 +14,6 @@ function decode(url){
               .replaceAll('%3F', '?');
 }
 
-
 /**
  * 
  * @param {string} url 

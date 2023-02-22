@@ -2,25 +2,25 @@ const logs = require('../utils/logs.js');
 const puppeteer = require('puppeteer');
 
 const urls = require('../utils/urls.js');
+const Extractor = require('./extractor.js').Extractor;
 const delay = require('../utils/utils.js').delay;
 
 const minDuration = 60;
 
-class Youtube{
-
-    constructor(){
-        super();
+class Youtube extends Extractor{
+    constructor(url, grab){
+        super(url, grab);
     }
 
     async extract(){
         this.qualities = await this.getAvailableQualityLevels();
         logs.debug("Available qualities", this.qualities);
 
-        if(this.settings.video.download){
+        if(this.video.download){
             await this.setPlaybackQualityRange(this.qualities[0]);
         }
 
-        await this.settings.page.waitForResponse((request) => {
+        await this.page.waitForResponse((request) => {
                 this.handle(request, this.settings)
                 .then((r) => {
                     if(r.ok){
@@ -33,7 +33,7 @@ class Youtube{
             .then(r => logs.write(r));
 
         // get title and author
-        this.title = await this.settings.page.title()
+        this.title = await this.page.title()
         .then(t => t.trimEnd());
 
         delay(300);
@@ -100,13 +100,13 @@ class Youtube{
     }
 
     async getAvailableQualityLevels(){
-        return await this.settings.page.evaluate(() => {
+        return await this.page.evaluate(() => {
             return document.querySelector('#movie_player').getAvailableQualityLevels();
         })
     }
 
     async setPlaybackQualityRange(quality){
-        await this.settings.page.evaluate((quality) => {
+        await this.page.evaluate((quality) => {
             document.querySelector('#movie_player').setPlaybackQualityRange(quality);
         }, quality);
     }

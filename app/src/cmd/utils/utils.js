@@ -20,14 +20,5 @@ function delay(ms) {
     });
 }
 
-/**
- * 
- * @param {string} url 
- * @returns 
- */
-function decodeUrl(url){
-    let new_url = url.replaceAll('%2F', '/').replaceAll('%2C', '\,').replaceAll('%3D', '=');
-    return new_url;
-}
 
-module.exports = { delay, decodeUrl };
+module.exports = { delay };

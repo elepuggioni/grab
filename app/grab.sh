@@ -2,7 +2,6 @@
 # More safety, by turning some bugs into errors.
 # Without `errexit` you don’t need ! and can replace
 # ${PIPESTATUS[0]} with a simple $?, but I prefer safety.
-set -o errexit -o pipefail -o noclobber -o nounset
 
 # -allow a command to fail with !’s side effect on errexit
 # -use return value from ${PIPESTATUS[0]}, because ! hosed $?

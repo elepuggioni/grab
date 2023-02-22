@@ -8,8 +8,13 @@ const delay = require('../utils/utils.js').delay;
 const minDuration = 60;
 
 class Youtube extends Extractor{
+    /** construct Youtube extractor
+     * @param {string} url 
+     * @param {'audio' | 'video'} grab 
+     */
     constructor(url, grab){
         super(url, grab);
+        this.needs_browser = true;
     }
     /** main extractor method
      * @returns { Result } the result of the extraction 

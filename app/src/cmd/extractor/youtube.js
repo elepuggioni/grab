@@ -15,11 +15,10 @@ class Youtube extends Extractor{
      * @returns { Result } the result of the extraction 
      */
     async extract(){
-        this.qualities = await this.getAvailableQualityLevels();
-        logs.debug("Available qualities", this.qualities);
-
         if(this.video.download){
-            await this.setPlaybackQualityRange(this.qualities[0]);
+            this.qualities = await this.getAvailableQualityLevels();
+            logs.debug("Available qualities", this.qualities);
+            await this.setPlaybackQualityRange(this.qualities[this.qualities.length -1]);
         }
 
         await this.page.waitForResponse((request) => {

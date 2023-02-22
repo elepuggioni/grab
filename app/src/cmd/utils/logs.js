@@ -1,5 +1,5 @@
 const DEBUG = true;
-const BROWSER = true;
+const BROWSER = false;
 
 /** print message to console if debug mode is enabled
  * @param { ...any } message

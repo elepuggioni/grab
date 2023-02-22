@@ -1,5 +1,6 @@
 const logs = require('../utils/logs.js');
 const puppeteer = require('puppeteer');
+const cp = require('node:child_process');
 
 const urls = require('../utils/urls.js');
 const Extractor = require('./extractor.js').Extractor;
@@ -54,6 +55,15 @@ class Youtube extends Extractor{
                 this.downloads.video = stream.url;
             }
         }
+
+        cp.exec("ffprobe -hide_banner -print_format json -show_format -show_streams  " + "\"" + this.downloads.audio + "\"", (error, stdout, stderr) => {
+            if (error) {
+              console.error(`exec error: ${error}`);
+              return;
+            }
+            console.log(`stdout: ${stdout}`);
+            console.error(`stderr: ${stderr}`);
+          });
 
         return {
             title: this.title,

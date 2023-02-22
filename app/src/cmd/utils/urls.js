@@ -1,5 +1,5 @@
 /**
- * 
+ * decode encoded URL
  * @param {string} url 
  * @returns {string}
  */
@@ -15,7 +15,7 @@ function decode(url){
 }
 
 /**
- * 
+ * deconstruct an URL into its query parameters
  * @param {string} url 
  * @returns { Object.<string, boolean> } an associative array where key: param_name and value: param_value
  */

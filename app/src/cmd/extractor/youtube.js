@@ -11,13 +11,14 @@ class Youtube extends Extractor{
     constructor(url, grab){
         super(url, grab);
     }
-
+    /** main extractor method
+     * @returns { Result } the result of the extraction 
+     */
     async extract(){
-        this.qualities = await this.getAvailableQualityLevels();
-        logs.debug("Available qualities", this.qualities);
-
         if(this.video.download){
-            await this.setPlaybackQualityRange(this.qualities[0]);
+            this.qualities = await this.getAvailableQualityLevels();
+            logs.debug("Available qualities", this.qualities);
+            await this.setPlaybackQualityRange(this.qualities[this.qualities.length -1]);
         }
 
         await this.page.waitForResponse((request) => {
@@ -56,8 +57,9 @@ class Youtube extends Extractor{
         };
     }
 
-    /**
+    /** method called on every intercepted request
      * @param {puppeteer.HTTPRequest} interceptedRequest 
+     * @returns { InterceptionResult }
      */
     async handle(interceptedRequest){
         // document.querySelector('#movie_player').getAvailableQualityLabels()
@@ -91,7 +93,9 @@ class Youtube extends Extractor{
         return result;
     }
 
-    // do some mayjikk later where i can get Id from any type of yt url
+    /** get ID of video from url
+     * @returns {string} the ID
+     */
     getVideoId(){
         const re = new RegExp(/watch\?v=(.*)/);
         let u = this.url.match(re);
@@ -99,24 +103,21 @@ class Youtube extends Extractor{
         return u[1];
     }
 
+    /** get available quality levels for this video by executing getAvailableQualityLevels() on #movie_player element 
+     * @returns { Array.<string> } available qualities
+     */
     async getAvailableQualityLevels(){
         return await this.page.evaluate(() => {
             return document.querySelector('#movie_player').getAvailableQualityLevels();
         })
     }
 
+    /** set video quality by executing setPlaybackQualityRange() on #movie_player element
+     */
     async setPlaybackQualityRange(quality){
         await this.page.evaluate((quality) => {
             document.querySelector('#movie_player').setPlaybackQualityRange(quality);
         }, quality);
-    }
-
-    changeQuality() {
-        const poll = resolve => {
-            if(func()) resolve();
-            else setTimeout(_ => poll(resolve), 400);
-        }
-        return new Promise(poll);
     }
 }
 module.exports = { Youtube }

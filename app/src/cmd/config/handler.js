@@ -1,6 +1,9 @@
 const Youtube = require('../extractor/youtube.js').Youtube;
 const logs = require('../utils/logs.js');
 
+/** get correct extractor based on url domain
+ * @returns { <E extends Extractor> } a class that extends Extractor
+*/
 function get_handler(url, grab){
     let handler;
     switch(url.hostname.split('.')[1]){

@@ -8,44 +8,50 @@ const handler = require('./config/handler.js');
 (async function main() {
     let extractor = setup();
 
-    const ublock = path.join(process.cwd(), './extensions/ublock');
-    const browser = await puppeteer.launch({
-        headless: 'chrome',
-        executablePath: 'google-chrome-stable',
-        args: [
-            `--disable-extensions-except=${ublock}`,
-            `--load-extension=${ublock}`,
-        ]
-    });
-    const page = await browser.newPage();
-    logs.write("Launched browser in headless mode...")
+    if(extractor.needs_browser){
+        const ublock = path.join(process.cwd(), './extensions/ublock');
+        const browser = await puppeteer.launch({
+            headless: 'chrome',
+            executablePath: 'google-chrome-stable',
+            args: [
+                `--disable-extensions-except=${ublock}`,
+                `--load-extension=${ublock}`,
+            ]
+        });
 
-    await page.setRequestInterception(true);
-    page.on('request', async request => {
-        // abort requests coming from blacklisted domains
-        let blockedHosts = io.readBlockedHosts();
-        let requestUrl = new URL(request.url());
+        const page = await browser.newPage();
+        logs.write("Launched browser in headless mode...")
 
-        if (blockedHosts[requestUrl.hostname]) {
-            await request.abort();
-        }
-        else {
-            await request.continue();
-        }
-    });
-    page.on('console', message => logs.browser(message.type().toUpperCase(), message.text(), '\n'))
-        .on('pageerror', message => logs.browser('ERROR', message.text(), '\n'))
-        .on('response', response => logs.browser('RESPONSE', response.status(), response.url(), '\n'))
-        .on('requestfailed', request => logs.browser('REQUEST FAIL', request.failure().errorText, request.url(), '\n'));
+        await page.setRequestInterception(true);
+        page.on('request', async request => {
+            // abort requests coming from blacklisted domains
+            let blockedHosts = io.readBlockedHosts();
+            let requestUrl = new URL(request.url());
 
-    await page.goto(extractor.url, { waitUntil: 'networkidle0' });
-    
-    extractor.set_page(page);
-    let result = await extractor.extract();
+            if (blockedHosts[requestUrl.hostname]) {
+                await request.abort();
+            }
+            else {
+                await request.continue();
+            }
+        });
+        page.on('console', message => logs.browser(message.type().toUpperCase(), message.text(), '\n'))
+            .on('pageerror', message => logs.browser('ERROR', message.text(), '\n'))
+            .on('response', response => logs.browser('RESPONSE', response.status(), response.url(), '\n'))
+            .on('requestfailed', request => logs.browser('REQUEST FAIL', request.failure().errorText, request.url(), '\n'));
 
-    io.writePlaylist(result);
+        await page.goto(extractor.url, { waitUntil: 'networkidle0' });
+        
+        extractor.set_page(page);
+        
+        let result = await extractor.extract();
+        io.writePlaylist(result);
 
-    await browser.close();
+        await browser.close();
+    }else{
+        let result = await extractor.extract();
+        io.writePlaylist(result);
+    }
 })();
 
 /**

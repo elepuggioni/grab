@@ -1,4 +1,6 @@
 const Youtube = require('../extractor/youtube.js').Youtube;
+const Radio3 = require('../extractor/radio3.js').Radio3;
+
 const logs = require('../utils/logs.js');
 
 /** get correct extractor based on url domain
@@ -9,6 +11,9 @@ function get_handler(url, grab){
     switch(url.hostname.split('.')[1]){
         case 'youtube':
             handler = new Youtube(url, grab);
+            break;
+        case 'raiplaysound':
+            handler = new Radio3(url);
             break;
         default:
             logs.fatal('Unknown domain.')

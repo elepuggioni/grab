@@ -1,5 +1,6 @@
 const logs = require('../utils/logs.js');
 const puppeteer = require('puppeteer');
+const fetch = require('cross-fetch');
 
 const urls = require('../utils/urls.js');
 const Extractor = require('./extractor.js').Extractor;
@@ -13,66 +14,35 @@ class Radio3 extends Extractor{
      */
     constructor(url){
         super(url, 'audio');
+        this.needs_browser = false;
     }
+    
     /** main extractor method
      * @returns { Result } the result of the extraction 
      */
     async extract(){
-        await this.page.waitForResponse((request) => {
-                this.handle(request, this.settings)
-                .then((r) => {
-                    if(r.ok){
-                        this.streams.push(r.stream);
-                        this.done[r.stream.type] = true;
-                    }
-                });
-                return this.done.audio;
-            })
-            .catch(r => logs.error(r));
+        let split_url = this.url.href.split('.');
+        split_url[split_url.length -1] = 'json';
 
-        // get title and author
-        this.title = await this.page.title()
-        .then(t => t.trimEnd());
+        let info_url = split_url.join('.');
 
-        delay(300);
+        let result = await fetch(info_url)
+                .then(r => r.json())
+                .then(r => r)
+                .catch(r => logs.error('Error fetching info json', r));
 
-        // for now take the first audio and video it finds and set it as the stuff to download
-        for (let stream of this.streams) {
-            if (stream.type === 'audio' && this.downloads.audio === undefined) {
-                this.downloads.audio = stream.url;
-            }
-        }
+                logs.debug(info_url)
+                logs.debug(result);
 
         return {
-            title: this.title,
-            streams: this.streams,
-            download: this.downloads
-        };
-    }
-
-    /** method called on every intercepted request
-     * @param {puppeteer.HTTPRequest} interceptedRequest 
-     * @returns { InterceptionResult }
-     */
-    async handle(interceptedRequest){
-        let url = new URL(interceptedRequest.url());
-        
-        let result = {
-            ok: false
-        };
-
-        // filter requests to find the ones containing the chunklist ().m3u8 file)
-        if (url.href.endsWith('m3u8')){
-            result = {
-                ok: true,
-                stream: {
-                    type: 'audio',
-                    url: url.href
-                },
+            title: result.audio.title.replaceAll('/', '-'),
+            type: result.audio.type,
+            duration: result.audio.duration,
+            poster: 'https://www.raiplaysound.it' + result.audio.poster.replaceAll('%20', ' '),
+            download: {
+                audio: result.audio.url,
             }
-            logs.debug(result);
-        }
-        return result;
+        };
     }
 }
 module.exports = { Radio3 }

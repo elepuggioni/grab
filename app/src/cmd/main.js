@@ -6,7 +6,7 @@ const io = require('./utils/io.js');
 const handler = require('./config/handler.js');
 
 (async function main() {
-    let extractor = cazzo();
+    let extractor = setup();
 
     const ublock = path.join(process.cwd(), './extensions/ublock');
     const browser = await puppeteer.launch({
@@ -17,7 +17,6 @@ const handler = require('./config/handler.js');
             `--load-extension=${ublock}`,
         ]
     });
-
     const page = await browser.newPage();
     logs.write("Launched browser in headless mode...")
 
@@ -34,8 +33,6 @@ const handler = require('./config/handler.js');
             await request.continue();
         }
     });
-
-    //print al console messages
     page.on('console', message => logs.browser(message.type().toUpperCase(), message.text(), '\n'))
         .on('pageerror', message => logs.browser('ERROR', message.text(), '\n'))
         .on('response', response => logs.browser('RESPONSE', response.status(), response.url(), '\n'))
@@ -51,9 +48,12 @@ const handler = require('./config/handler.js');
     await browser.close();
 })();
 
-function cazzo(){
+/**
+ * setup initial config and extractor
+ * @returns { <E extends Extractor> }
+ */
+function setup(){
     logs.write('Setting up...');
-    // process.argv.slice(2, 3)[0] to get cli arguments
 
     let url = process.argv.slice(2, 3)[0];
     if(url === undefined){
@@ -62,11 +62,12 @@ function cazzo(){
 
     // todo check url is valid 
 
-    let h = handler.get_handler(
+    //initialize extractor here
+    let extractor = handler.get_handler(
         new URL(url),
         process.argv.slice(3, 4)[0]
     );
 
-    logs.debug(h);
-    return h;
+    logs.debug(extractor);
+    return extractor;
 }

@@ -17,9 +17,9 @@ function write(file, data) {
     });
 }
 
-/** calls fs.readFileSync(file, 'utf8') to read all contents of file 
+/** read all contents of file 
  * @param { string } file a path to a file
- * @returns { string } with the contents of the file
+ * @returns { string } content of the file
 */
 function read(file) {
     return fs.readFileSync(file, 'utf8');
@@ -29,7 +29,7 @@ function read(file) {
  * @returns { Object.<string, boolean> } an associative array where key: domain_name and value: true
 */
 function readBlockedHosts(){
-    let file = read('./app/src/config/hosts.txt').split('\n');
+    let file = read('./app/src/files/hosts.txt').split('\n');
     let hosts = {};
 
     for (let line of file){
@@ -45,6 +45,9 @@ function readBlockedHosts(){
     return hosts;
 }
 
+/** write data to playlist.json
+ * @returns { Error | null }
+*/
 function writePlaylist(data){
     return write('app/src/playlist.json', data);
 }

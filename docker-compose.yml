@@ -2,7 +2,7 @@ services:
   grab: 
     image: elena/grab:latest
     security_opt:
-      - seccomp:app/src/config/chrome.json
+      - seccomp:app/src/files/chrome.json
     build: .
     working_dir: /grab
     volumes:

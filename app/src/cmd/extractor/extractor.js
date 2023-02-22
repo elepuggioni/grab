@@ -63,6 +63,9 @@ class Extractor{
         }
     }
 
+    /** set page
+    * @param {puppeteer.Page} quality
+    */
     set_page(page){
         this.page = page;
     }

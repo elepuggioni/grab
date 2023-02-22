@@ -1,21 +1,21 @@
 const DEBUG = true;
-const BROWSER = false;
+const BROWSER = true;
 
-/** print message to console if debug mode
+/** print message to console if debug mode is enabled
  * @param { ...any } message
 */
 function debug(...message){
     if(DEBUG){
-        console.log('DEBUG', ...message);
+        console.log("\x1b[1;37m", ...message, "\x1b[0m");
     }
 }
 
-/** print message to console if browser messages enabled
+/** print message to console if browser messages are enabled
  * @param { ...any } message
 */
 function browser(...message){
     if(BROWSER){
-        console.log('[BROWSER]', ...message);
+        console.log("\x1b[36m", ...message, "\x1b[0m");
     }
 }
 
@@ -30,14 +30,14 @@ function write(...message){
  * @param { ...any } message
 */
 function warn(...message){
-    console.log("\x1b[33m", 'WARNING', ...message, "\x1b[0m");
+    console.log("\x1b[33m", ...message, "\x1b[0m");
 }
 
 /** print non-fatal error to console
  * @param { ...any } message
 */
 function error(...message){
-    console.log("\x1b[31m", 'ERROR', ...message, "\x1b[0m");
+    console.log("\x1b[31m", ...message, "\x1b[0m");
 }
 
 /** print message to console, then exit

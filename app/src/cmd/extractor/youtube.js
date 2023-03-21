@@ -3,10 +3,11 @@ const puppeteer = require('puppeteer');
 const cp = require('node:child_process');
 
 const urls = require('../utils/urls.js');
+const io = require('../utils/io.js');
 const Extractor = require('./extractor.js').Extractor;
 const delay = require('../utils/utils.js').delay;
 
-const minDuration = 60;
+const minDuration = 150;
 
 class Youtube extends Extractor{
     /** construct Youtube extractor
@@ -16,37 +17,76 @@ class Youtube extends Extractor{
     constructor(url, grab){
         super(url, grab);
         this.needs_browser = true;
+        this.streamingData = {};
+        this.interceptedStreamingRequests = [];
     }
     /** main extractor method
+     * 
      * @returns { Result } the result of the extraction 
      */
+    // type AdaptiveFormat {
+    //     itag: int,
+    //     mimeType: String, // "video/mp4; codecs=\"avc1.4d401e\"",
+    //     bitrate: int,
+    //     width: int,
+    //     height: int,
+    //     initRange: {
+    //         start: int,
+    //         end: int
+    //     },
+    //     indexRange: {
+    //         start: int,
+    //         end: int
+    //     },
+    //     lastModified: int,
+    //     contentLength: int,
+    //     quality: String,
+    //     fps: 25,
+    //     qualityLabel: String,
+    //     projectionType: String,
+    //     averageBitrate: int,
+    //     approxDurationMs: int,
+    //     signatureCipher: String
+    // };
     async extract(){
-        if(this.video.download){
-            this.qualities = await this.getAvailableQualityLevels();
-            logs.debug("Available qualities", this.qualities);
-            await this.setPlaybackQualityRange(this.qualities[this.qualities.length -1]);
+        await this.page.setRequestInterception(true);
+
+        let blockedHosts = io.readBlockedHosts();
+        this.page.on('request', async request => {
+            // abort requests coming from blacklisted domains
+            let requestUrl = new URL(request.url());
+
+            if (blockedHosts[requestUrl.hostname]) {
+                await request.abort();
+            }
+            else {
+                if(requestUrl.hostname.search('googlevideo.com') !== -1){
+                    logs.debug('Intercepted a request...');
+                    this.interceptedStreamingRequests.push(requestUrl);
+                }
+                await request.continue();
+            }
+        });
+
+        await this.page.goto(this.url, { waitUntil: 'networkidle0' });
+
+        this.streamingData = await this.page.evaluate(() => {
+                return ytInitialPlayerResponse.streamingData;
+            }
+        );
+
+        for(let i = 0; i < this.interceptedStreamingRequests.length || !(this.done.audio && this.done.video); i++){
+            const url = this.interceptedStreamingRequests[i];
+            
+            let r = this.handle(url);
+            if(r.ok){
+                this.streams.push(r.stream);
+                this.done[r.stream.type] = true;
+                logs.debug('audio', this.done.audio);
+            }
         }
-
-        await this.page.waitForResponse((request) => {
-                this.handle(request, this.settings)
-                .then((r) => {
-                    if(r.ok){
-                        this.streams.push(r.stream);
-                        this.done[r.stream.type] = true;
-                    }
-                });
-                return this.done.audio && this.done.video;
-            })
-            .then(r => logs.write(r));
-
-        // get title and author
-        this.title = await this.page.title()
-        .then(t => t.trimEnd());
-
-        delay(300);
-        //let author = await page.$eval('a.yt-simple-endpoint.style-scope.yt-formatted-string', el => el.innerText);
-
-        // for now take the first audio and video it finds and set it as the stuff to download
+           
+        // for now just take the first audio and video it finds and set it as the stuff to download
         for (let stream of this.streams) {
             if (stream.type === 'audio' && this.downloads.audio === undefined) {
                 this.downloads.audio = stream.url;
@@ -56,14 +96,14 @@ class Youtube extends Extractor{
             }
         }
 
-        cp.exec("ffprobe -hide_banner -print_format json -show_format -show_streams  " + "\"" + this.downloads.audio + "\"", (error, stdout, stderr) => {
-            if (error) {
-              console.error(`exec error: ${error}`);
-              return;
-            }
-            console.log(`stdout: ${stdout}`);
-            console.error(`stderr: ${stderr}`);
-          });
+        // cp.exec("ffprobe -hide_banner -print_format json -show_format -show_streams  " + "\"" + this.downloads.audio + "\"", (error, stdout, stderr) => {
+        //     if (error) {
+        //       console.error(`exec error: ${error}`);
+        //       return;
+        //     }
+        //     console.log(`stdout: ${stdout}`);
+        //     console.error(`stderr: ${stderr}`);
+        //   });
 
         return {
             title: this.title,
@@ -73,38 +113,28 @@ class Youtube extends Extractor{
     }
 
     /** method called on every intercepted request
-     * @param {puppeteer.HTTPRequest} interceptedRequest 
+     * @param {URL} url 
      * @returns { InterceptionResult }
      */
-    async handle(interceptedRequest){
-        // document.querySelector('#movie_player').getAvailableQualityLabels()
-        // document.querySelector('#movie_player').setPlaybackQualityRange(qualitylabel)
-        let url = new URL(urls.decode(interceptedRequest.url()));
-        
+    handle(url){
         let result = {
             ok: false
         };
 
-        // filter requests to find the ones containing media streams
-        if (url.hostname.search('googlevideo.com') !== -1){
-            let params = urls.deconstruct(url.href);
+        let params = urls.deconstruct(urls.decode(url.href));
 
-            if(parseFloat(params.dur, 10) > minDuration){
-                const re = new RegExp(/range=[^&]*/);
+        if(params.dur !== undefined && this.streamingData.formats[0].approxDurationMs.startsWith(params.dur.split('.')[0])){
+            const re = new RegExp(/range=[^&]*/);
 
-                result = {
-                    ok: true,
-                    stream: {
-                        type: params.mime.substring(0, params.mime.indexOf("/")),
-                        url: url.href.replace(re, 'range=0-999999999')
-                    },
-                }
-
-                logs.debug(params);
-                logs.debug(result);
+            result = {
+                ok: true,
+                stream: {
+                    type: params.mime.substring(0, params.mime.indexOf("/")),
+                    url: url.href.replace(re, 'range=0-999999999')
+                },
             }
+            logs.debug(params);
         }
-
         return result;
     }
 
@@ -114,7 +144,7 @@ class Youtube extends Extractor{
     getVideoId(){
         const re = new RegExp(/watch\?v=(.*)/);
         let u = this.url.match(re);
-        logs.write('cazzo', u[1]);
+        logs.write('ID', u[1]);
         return u[1];
     }
 
@@ -133,6 +163,30 @@ class Youtube extends Extractor{
         await this.page.evaluate((quality) => {
             document.querySelector('#movie_player').setPlaybackQualityRange(quality);
         }, quality);
+    }
+
+    async checkForAds(){
+        return await this.page.waitForFunction("document.querySelector('.video-ads.ytp-ad-module') && document.querySelector('.video-ads.ytp-ad-module').clientHeight != 0", {timeout: 4000});
+    }
+
+    async waitForSkipAdsButton(){
+        return await this.page.waitForFunction("document.querySelector('.ytp-ad-skip-button.ytp-button') && document.querySelector('.ytp-ad-skip-button.ytp-button').clientHeight != 0", {timeout: 10000});
+    }
+
+    async skipAds(){
+        if(await this.checkForAds()){
+            logs.debug('FUCKING ADS');
+                if(await this.waitForSkipAdsButton()){
+                    return await this.page.$('.ytp-ad-skip-button.ytp-button')
+                        .then((skipButton) => skipButton.click())
+                        .then(() => logs.debug('Button clicked!'));
+                }
+        }
+        else{
+            logs.debug('NO ADSS');
+            return Promise.resolve();
+        }
+        
     }
 }
 module.exports = { Youtube }

@@ -64,10 +64,17 @@ class Extractor{
     }
 
     /** set page
-    * @param {puppeteer.Page} quality
+    * @param {puppeteer.Page} page
     */
     set_page(page){
         this.page = page;
+    }
+
+    /** set browser
+    * @param {} browser
+    */
+    set_browser(browser){
+        this.browser = browser;
     }
 }
 

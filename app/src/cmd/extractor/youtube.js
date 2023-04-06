@@ -1,9 +1,8 @@
 const logs = require('../utils/logs.js');
-const puppeteer = require('puppeteer');
-const cp = require('node:child_process');
-
+const pages = require('../utils/pages.js');
 const urls = require('../utils/urls.js');
 const io = require('../utils/io.js');
+const ffmpeg = require('../utils/ffmpeg.js');
 const Extractor = require('./extractor.js').Extractor;
 const delay = require('../utils/utils.js').delay;
 
@@ -17,7 +16,7 @@ class Youtube extends Extractor{
     constructor(url, grab){
         super(url, grab);
         this.needs_browser = true;
-        this.streamingData = {};
+        this.ytInitialPlayerResponse = {};
         this.interceptedStreamingRequests = [];
     }
     /** main extractor method
@@ -47,68 +46,84 @@ class Youtube extends Extractor{
     //     averageBitrate: int,
     //     approxDurationMs: int,
     //     signatureCipher: String
+
+            // this.streams.push({
+        //     type: 'video',
+        //     url: this.ytInitialPlayerResponse.streamingData.adaptiveFormats[0].url,
+        // });
+        // logs.debug(this.ytInitialPlayerResponse.streamingData.adaptiveFormats[0]);
     // };
     async extract(){
-        await this.page.setRequestInterception(true);
-
-        let blockedHosts = io.readBlockedHosts();
-        this.page.on('request', async request => {
-            // abort requests coming from blacklisted domains
-            let requestUrl = new URL(request.url());
-
-            if (blockedHosts[requestUrl.hostname]) {
-                await request.abort();
-            }
-            else {
-                if(requestUrl.hostname.search('googlevideo.com') !== -1){
-                    logs.debug('Intercepted a request...');
-                    this.interceptedStreamingRequests.push(requestUrl);
-                }
-                await request.continue();
-            }
-        });
-
+        this.page = await pages.newPage(this.browser, true);
         await this.page.goto(this.url, { waitUntil: 'networkidle0' });
 
-        this.streamingData = await this.page.evaluate(() => {
-                return ytInitialPlayerResponse.streamingData;
+        this.ytInitialPlayerResponse = await this.page.evaluate(() => {
+                return ytInitialPlayerResponse;
             }
         );
 
-        for(let i = 0; i < this.interceptedStreamingRequests.length || !(this.done.audio && this.done.video); i++){
-            const url = this.interceptedStreamingRequests[i];
-            
-            let r = this.handle(url);
-            if(r.ok){
-                this.streams.push(r.stream);
-                this.done[r.stream.type] = true;
-                logs.debug('audio', this.done.audio);
-            }
+        // sometimes the stream url is immediately available
+        if(this.ytInitialPlayerResponse.streamingData.adaptiveFormats[0].url !== undefined){
+            // todo: choose quality option
+            let command = new ffmpeg.Command(
+                this.ytInitialPlayerResponse.streamingData.adaptiveFormats[0].url,
+                'prova'
+                );
+            command.download().exec();
         }
-           
-        // for now just take the first audio and video it finds and set it as the stuff to download
-        for (let stream of this.streams) {
-            if (stream.type === 'audio' && this.downloads.audio === undefined) {
-                this.downloads.audio = stream.url;
+        else{
+            // otherwise we have to intercept the network requests
+            await this.page.close();
+            this.page = await pages.newPage(this.browser, true);
+
+            await this.page.setRequestInterception(true);
+            let blockedHosts = io.readBlockedHosts();
+            this.page.on('request', async request => {
+                // abort requests coming from blacklisted domains
+                let requestUrl = new URL(request.url());
+
+                if (blockedHosts[requestUrl.hostname]) {
+                    await request.abort();
+                }
+                else {
+                    if(requestUrl.hostname.search('googlevideo.com') !== -1){
+                        logs.debug('Intercepted a request...');
+                        this.interceptedStreamingRequests.push(requestUrl);
+                    }
+                    await request.continue();
+                }
+            });
+
+            await this.page.goto(this.url, { waitUntil: 'networkidle0' });
+
+            this.ytInitialPlayerResponse = await this.page.evaluate(() => {
+                    return ytInitialPlayerResponse;
+                }
+            );
+
+            // get stream urls
+            for(let i = 0; i < this.interceptedStreamingRequests.length || !(this.done.audio && this.done.video); i++){
+                const url = this.interceptedStreamingRequests[i];
+                
+                let r = this.handle(url);
+                if(r.ok){
+                    this.streams.push(r.stream);
+                    this.done[r.stream.type] = true;
+                    logs.debug('audio', this.done.audio);
+                }
             }
-            if (stream.type === 'video' && this.downloads.video === undefined) {
-                this.downloads.video = stream.url;
-            }
+
+            let command = new ffmpeg.Command(
+                this.streams[0].url,
+                'prova',
+                'mp3'
+                );
+            command.download().exec();
         }
-
-        // cp.exec("ffprobe -hide_banner -print_format json -show_format -show_streams  " + "\"" + this.downloads.audio + "\"", (error, stdout, stderr) => {
-        //     if (error) {
-        //       console.error(`exec error: ${error}`);
-        //       return;
-        //     }
-        //     console.log(`stdout: ${stdout}`);
-        //     console.error(`stderr: ${stderr}`);
-        //   });
-
+        
         return {
-            title: this.title,
-            streams: this.streams,
-            download: this.downloads
+            title: 'cazzo',
+            streams: this.streams
         };
     }
 
@@ -123,7 +138,7 @@ class Youtube extends Extractor{
 
         let params = urls.deconstruct(urls.decode(url.href));
 
-        if(params.dur !== undefined && this.streamingData.formats[0].approxDurationMs.startsWith(params.dur.split('.')[0])){
+        if(params.dur !== undefined && this.ytInitialPlayerResponse.streamingData.formats[0].approxDurationMs.startsWith(params.dur.split('.')[0])){
             const re = new RegExp(/range=[^&]*/);
 
             result = {

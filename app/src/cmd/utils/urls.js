@@ -11,7 +11,14 @@ function decode(url){
               .replaceAll('%3D', '=')
               .replaceAll('%253D', '=')
               .replaceAll('%26', '&')
-              .replaceAll('%3F', '?');
+              .replaceAll('%3F', '?')
+              .replaceAll('%3B', ';')
+              .replaceAll('%5C', '\\')
+              .replaceAll('%3A', ':')
+              .replaceAll('%22', '\"')
+              .replaceAll('%7D', '}')
+              .replaceAll('%7B', '{')
+              .split('\\u0026').join('&');
 }
 
 /**

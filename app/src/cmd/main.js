@@ -12,17 +12,8 @@ const handler = require('./config/handler.js');
             headless: 'false',
             executablePath: 'google-chrome-stable',
         });
-
-        const page = await browser.newPage();
         logs.write("Launched browser in headless mode...")
-
-        page.on('console', message => logs.browser(message.type().toUpperCase(), message.text(), '\n'))
-            .on('pageerror', message => logs.browser('ERROR', message.text(), '\n'))
-            .on('response', response => logs.browser('RESPONSE', response.status(), response.url(), '\n'))
-            .on('requestfailed', request => logs.browser('REQUEST FAIL', request.failure().errorText, request.url(), '\n'));
-        
         extractor.set_browser(browser);
-        extractor.set_page(page);
 
         let result = await extractor.extract();
         io.writePlaylist(result);

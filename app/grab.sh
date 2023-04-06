@@ -59,14 +59,14 @@ fi
 
 npm run start $1 $channel
 
-audio=$(cat ./src/playlist.json | jq -r '.download.audio')
-video=$(cat ./src/playlist.json | jq -r '.download.video')
-title=$(cat ./src/playlist.json | jq -r '.title')
-author=$(cat ./src/playlist.json | jq -r '.author')
+# audio=$(cat ./src/playlist.json | jq -r '.download.audio')
+# video=$(cat ./src/playlist.json | jq -r '.download.video')
+# title=$(cat ./src/playlist.json | jq -r '.title')
+# author=$(cat ./src/playlist.json | jq -r '.author')
 
-echo -e "$channel \n"
-if [ "$channel" = "audio" ]; then
-    ffmpeg -i $audio ../downloads/"$title".mp3
-else
-    ffmpeg -i $video -i $audio -map 0:v -map 1:a ../downloads/"$title".mp4
-fi
+# echo -e "$channel \n"
+# if [ "$channel" = "audio" ]; then
+#     ffmpeg -i $audio -map 0:a:0 -c copy ../downloads/"$title".mp3
+# else
+#     ffmpeg -i $video -i $audio -map 0:v -map 1:a ../downloads/"$title".mp4
+# fi

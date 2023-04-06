@@ -8,3 +8,4 @@ mkdir -p ./downloads
 npm i
 
 chown -R $USER:1024 ./downloads
+chown $USER:1024 ./app/src/playlist.json
